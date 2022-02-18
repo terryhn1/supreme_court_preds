@@ -37,6 +37,30 @@ TRAIN_SIZE = 0.8
 TEST_SIZE = 0.2
 
 
+"""
+Summary:The CaseSentimentLSTM is the model used alongside with Sentiment Analysis
+in order to predict the favored winner of the case depending on the textdata given.
+
+Model Layout: In order to create a deep learning network, multiple layers are included and
+can be viewed in the __init__ method of the model. Each model serves a purpose in order
+to help get more accurate results.
+
+Current Completion Progress: Code has been tested up until the Training part. In order to complete the basic
+functionality of the model, evaluation as well as testing must be done in order to get back results and to see
+results that would be considered normal.
+
+Choices of Constants: Hidden Size is chosen to be 32 for now but can be changed to 16 later to introduce more strict output.
+Batch size is chosen to be 32 as a good count for a set of 3303 cases. Num_layers chosen to be 2 in order to introduce some
+strictness and stacking into the LSTM model. Output_Size is chosen to be 1 as a default. Train Size and Test Size are at 0.8
+and 0.2 as defaults
+
+Roadblocks Encountered Resulting in Delay: Text Data had to be transferred into a custom Dataset in order
+to be fed into a DataLoader class. Conflicting tutorials as well as legacy libraries that cannot be used on current desktop.
+
+Functionalities To not be Added: Additional features are not being accounted for and dates will not be separated
+due to lack of sufficient data already for training purposes. """
+
+
 class CaseSentimentLSTM(nn.Module):
     
     def __init__(self, weights_matrix, hidden_size, output_size, num_layers, drop_rate = 0.5):
@@ -46,6 +70,7 @@ class CaseSentimentLSTM(nn.Module):
         self.num_layers = num_layers
         self.word_embeddings, num_embeddings , embedding_dim = create_emb_layer(weights_matrix)
 
+        #Initializes the weights_matrix as the weights to be used in the current word_embeddings structure
         self.word_embeddings.weight.data.copy_(torch.tensor(weights_matrix))
 
 
@@ -91,6 +116,8 @@ class CaseSentimentLSTM(nn.Module):
         return torch.zeros(self.num_layers, batch_size, self.hidden_size)
 
 def instantiate_model(weights_matrix, vocab_size):
+    """This function can be ignored for now as there is currently no real usage of the vocab_size until reviewed further"""
+
     vocab_size = vocab_size + 1  # 0 Padding
     output_size = OUTPUT_SIZE
     hidden_dim = HIDDEN_SIZE
@@ -101,6 +128,7 @@ def instantiate_model(weights_matrix, vocab_size):
     return net
 
 def binary_accuracy(preds, y):
+    """Returns back the accuracy rate of the predictions given"""
     rounded_preds = torch.round(torch.sigmoid(preds))
     correct = (rounded_preds == y).float()
     acc = correct.mean()
@@ -108,11 +136,16 @@ def binary_accuracy(preds, y):
     return acc
 
 def train(model: CaseSentimentLSTM , iterator: torch.utils.data.DataLoader, optimizer: optim.Adam, criterion: nn.BCEWithLogitsLoss):
+    """A framework function in order to run the test of the model"""
+
+    #Sets the original variables to be passed into the return later on 
     epoch_loss = 0
     epoch_acc = 0
 
+    #Trains the model first on what info has alerady been fed from the word embeddings
     model.train()
 
+    #Goes batch by batch and attempts to make predictions from the text and text_length that is passed to the base nn.Module Class
     for batch in iterator:
 
         optimizer.zero_grad()
@@ -120,11 +153,14 @@ def train(model: CaseSentimentLSTM , iterator: torch.utils.data.DataLoader, opti
         text = batch["text"]
         text_length = batch["text_length"]
 
+        #Prediction and squeezing the predictions into 1 dimension
         preds = model(text, text_length).squeeze(1)
 
+        #Calculating the loss through the preds
         loss = criterion(preds, batch["label"])
 
-        acc = accuracy_score(preds, batch["label"])
+        #Calculating the
+        acc = binary_accuracy(preds, batch["label"])
 
         loss.backward()
 
@@ -137,6 +173,7 @@ def train(model: CaseSentimentLSTM , iterator: torch.utils.data.DataLoader, opti
     return epoch_loss / len(iterator), epoch_acc /len(iterator)
 
 def evaluate(model: CaseSentimentLSTM, iterator: torch.utils.data.DataLoader, criterion: nn.BCEWithLogitsLoss):
+    """Framework function in order to evaluate the model its loss and accuracy"""
 
     epoch_loss = 0
     epoch_acc = 0
@@ -162,12 +199,14 @@ def evaluate(model: CaseSentimentLSTM, iterator: torch.utils.data.DataLoader, cr
 
 #Initialize a dictionary to hold the values in the glove file
 def initialize_glove():
+    """A function made in order to take what is in the gloVe files and convert it into a workable dictionary for the code"""
     global glove
     glove = {}
 
     #Create a Timer to see the load time of the file
     start = time.time()
 
+    #Opens the glove file and starts uploading its vectors(50,100, 200, 300) into a dictionary for Python usage
     with open(GLOVE100D, encoding= "utf-8") as file:
         for line in file:
             dimensions = line.split()
@@ -180,18 +219,22 @@ def initialize_glove():
 
 
 def check_vocab_instances():
+    """Adds in new vocab from the text_data that could not be found in the gloVe file in order to not lead to any errors in the future"""
     vocab = set()
     emb_dim = len(glove["the"])
     dataset, corpus = extraction.extract_data()
 
+    #A for loop over the text corpus to see any unique instances
     for case in corpus:
         for word in case:
             vocab.add(word)
 
+    #Sets the original weights_matrix that will be used later to create the Embedding Layer
     matrix_size = len(vocab)
     weights_matrix = np.zeros((matrix_size, emb_dim))
     words_found = 0
 
+    #Checks for the existence of the key. If it doesn't exist, then add it into the weights matrix with a random vector matrix
     for i, word in enumerate(vocab):
         try:
             weights_matrix[i] = glove[word]
@@ -202,6 +245,7 @@ def check_vocab_instances():
     return dataset, weights_matrix, words_found
 
 def create_emb_layer(weights_matrix, non_trainable = False):
+    """Creates the embedded layer without the initialization of the weights_matrix into the embedding."""
     print(type(weights_matrix))
     num_embeddings, embedding_dim = weights_matrix.shape
     emb_layer = nn.Embedding(num_embeddings, embedding_dim)
