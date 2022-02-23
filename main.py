@@ -1,6 +1,8 @@
 from tkinter import HIDDEN
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
+from torchtext.vocab import build_vocab_from_iterator
+from torchtext.data.utils import get_tokenizer
 from torchtext import datasets
 import torch.optim as optim
 import numpy as np
@@ -36,6 +38,16 @@ TRAIN_SIZE = 0.8
 #TESTING SIZE
 TEST_SIZE = 0.2
 
+#SETTING THE SEED TO 1 SO NO RANDOM COMPUTATION
+torch.manual_seed(0)
+random.seed(0)
+
+#SETTING DEVICE
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+#Main Tokenizer
+tokenizer = get_tokenizer("basic_english")
+
 
 """
 Summary:The CaseSentimentLSTM is the model used alongside with Sentiment Analysis
@@ -68,7 +80,7 @@ class CaseSentimentLSTM(nn.Module):
         self.hidden_size = hidden_size
         self.output_size = output_size
         self.num_layers = num_layers
-        self.word_embeddings, num_embeddings , embedding_dim = create_emb_layer(weights_matrix)
+        self.word_embeddings, embedding_dim = create_emb_layer(weights_matrix)
 
         #Initializes the weights_matrix as the weights to be used in the current word_embeddings structure
         self.word_embeddings.weight.data.copy_(torch.tensor(weights_matrix))
@@ -86,13 +98,14 @@ class CaseSentimentLSTM(nn.Module):
         #Final Layer for Fact Positivity given the Party Label
         self.sig = nn.Sigmoid()
 
-    def forward(self, x, hidden):
-
+    def forward(self, text, text_length):
+        
         #Embedding Layer
-        out = self.word_embeddings(x)
+        embedded = self.dropout(self.word_embeddings(text))
+        #packed_embedded = nn.utils.rnn.pack_padded_sequence(embedded, text_length.to("cpu"))
 
         #LSTM Layer
-        lstm_out, hidden  = self.lstm(out, hidden)
+        lstm_out, hidden  = self.lstm(embedded)
 
         #Dropout Layer
         out = self.dropout(lstm_out)
@@ -114,18 +127,6 @@ class CaseSentimentLSTM(nn.Module):
     def init_hidden_state(self, batch_size):
         #creates the h0 layer
         return torch.zeros(self.num_layers, batch_size, self.hidden_size)
-
-def instantiate_model(weights_matrix, vocab_size):
-    """This function can be ignored for now as there is currently no real usage of the vocab_size until reviewed further"""
-
-    vocab_size = vocab_size + 1  # 0 Padding
-    output_size = OUTPUT_SIZE
-    hidden_dim = HIDDEN_SIZE
-    n_layers = NUM_LAYERS
-
-    net = CaseSentimentLSTM(weights_matrix,hidden_dim, output_size, n_layers)
-
-    return net
 
 def binary_accuracy(preds, y):
     """Returns back the accuracy rate of the predictions given"""
@@ -152,9 +153,10 @@ def train(model: CaseSentimentLSTM , iterator: torch.utils.data.DataLoader, opti
         
         text = batch["text"]
         text_length = batch["text_length"]
+        print(text)
 
         #Prediction and squeezing the predictions into 1 dimension
-        preds = model(text, text_length).squeeze(1)
+        preds = model(text,text_length).squeeze(1)
 
         #Calculating the loss through the preds
         loss = criterion(preds, batch["label"])
@@ -246,23 +248,37 @@ def check_vocab_instances():
 
 def create_emb_layer(weights_matrix, non_trainable = False):
     """Creates the embedded layer without the initialization of the weights_matrix into the embedding."""
-    print(type(weights_matrix))
-    num_embeddings, embedding_dim = weights_matrix.shape
-    emb_layer = nn.Embedding(num_embeddings, embedding_dim)
+    vocab_size, embedding_dim = weights_matrix.shape
+    emb_layer = nn.Embedding(vocab_size, embedding_dim)
     
     if non_trainable:
         emb_layer.weight.requires_grad = False
     
-    return emb_layer, num_embeddings, embedding_dim
+    return emb_layer, embedding_dim
+
+def yield_tokens(iter):
+    for text in iter:
+        yield tokenizer(text)
+
+def collate_batch(batch):
+    text_list, label_list, text_lengths = [],[],[]
+    max_vocab_size = 500
+    for sample in batch:
+        processed_text = vocab(tokenizer((sample["text"])))
+        while len(processed_text) < 500:
+            processed_text.append(0)
+        text_list.append(processed_text)
+        text_lengths.append(sample["text_length"])
+        label_list.append(sample["label"])
+    
+    label_list = torch.tensor(label_list, dtype = torch.int64)
+    text_lengths = torch.tensor(text_lengths, dtype = torch.int64)
+    text_list = torch.tensor(text_list, dtype = torch.int64)
+    print(text_list.size())
+    return {"label": label_list.to(device), "text":text_list.to(device), "text_length": text_lengths.to(device)}
+
 
 if __name__ == "__main__":
-
-    #SETTING THE SEED TO 1 SO NO RANDOM COMPUTATION
-    torch.manual_seed(0)
-    random.seed(0)
-
-    #SETTING DEVICE
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     #INITIALIZING GLOVE
     initialize_glove()
@@ -270,6 +286,9 @@ if __name__ == "__main__":
 
     #CREATING DATASETS
     judg_data = extraction.JudgmentDataset(dataset)
+    
+    global vocab
+    vocab = build_vocab_from_iterator(yield_tokens(judg_data.x_train))
 
     train_indices, test_indices, _, _ = train_test_split(range(len(judg_data)), judg_data.targets
                                                         , stratify = judg_data.targets, test_size= TEST_SIZE, random_state = 1)
@@ -278,21 +297,21 @@ if __name__ == "__main__":
     train_split = torch.utils.data.Subset(judg_data, train_indices)
     test_split = torch.utils.data.Subset(judg_data, test_indices)
     
-    train_loader = torch.utils.data.DataLoader(train_split, batch_size = BATCH_SIZE, shuffle = True)
-    test_loader = torch.utils.data.DataLoader(test_split, batch_size = BATCH_SIZE, shuffle = True)
+    train_loader = torch.utils.data.DataLoader(train_split, batch_size = BATCH_SIZE, shuffle = True, num_workers = 0, collate_fn = collate_batch)
+    test_loader = torch.utils.data.DataLoader(test_split, batch_size = BATCH_SIZE, shuffle = True, num_workers = 0, collate_fn = collate_batch)
 
     #CREATING MODEL
     model = CaseSentimentLSTM(weights_matrix, HIDDEN_SIZE,OUTPUT_SIZE, NUM_LAYERS)
     
-    # #CREATE OPTIMIZER AND CRITERION
-    # optimizer = optim.Adam(model.parameters())
-    # criterion = nn.BCEWithLogitsLoss()
+    #CREATE OPTIMIZER AND CRITERION
+    optimizer = optim.Adam(model.parameters())
+    criterion = nn.BCEWithLogitsLoss()
 
-    # #SEND TO GPU
-    # model = model.to(device)
-    # criterion = criterion.to(device)
+    #SEND TO GPU
+    model = model.to(device)
+    criterion = criterion.to(device)
 
-    # #TRAIN MODEL
-    # train(model)
+    #TRAIN MODEL
+    train(model, train_loader, optimizer, criterion)
 
 

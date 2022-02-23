@@ -1,3 +1,4 @@
+from distutils.command.build import build
 import pandas as pd
 import re
 import torch
@@ -5,33 +6,17 @@ import numpy as np
 import string
 from sklearn.model_selection import train_test_split
 from nltk import word_tokenize
+from torchtext.vocab import build_vocab_from_iterator
+from torchtext.data.utils import get_tokenizer
 
 
 class JudgmentDataset(torch.utils.data.Dataset):
-
-    all_letters = string.ascii_letters + " .,;'"
-    n_letters = len(all_letters)
-
-    def letterToIndex(letter):
-        return JudgmentDataset.all_letters.find(letter)
-
-    def letterToTensor(letter):
-        tensor = torch.zeros(1, JudgmentDataset.n_letters)
-        tensor[0][JudgmentDataset.letterToIndex(letter)] = 1
-        return tensor
-
-    def lineToTensor(line):
-        tensor = torch.zeros(len(line), 1, JudgmentDataset.n_letters)
-        for li, letter in enumerate(line):
-            tensor[li][0][JudgmentDataset.letterToIndex(letter)] = 1
-        return tensor
+        
 
     def __init__(self, judg_dataframe):
-        x = judg_dataframe["textdata"]
-        y = judg_dataframe["winner_label"]
+        self.x_train = judg_dataframe["textdata"]
 
-        self.y_train = torch.tensor(y, dtype = torch.float32)
-        self.x_train = JudgmentDataset.lineToTensor(x)
+        self.y_train = judg_dataframe["winner_label"]
 
         self.targets = judg_dataframe["winner_label"]
     
@@ -40,6 +25,7 @@ class JudgmentDataset(torch.utils.data.Dataset):
     
     def __getitem__(self, idx):
         return {'text': self.x_train[idx], 'label': self.y_train[idx], 'text_length': len(self.x_train[idx])}
+
 
 
 
