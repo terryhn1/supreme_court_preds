@@ -30,7 +30,7 @@ BATCH_SIZE = 32
 NUM_LAYERS = 2
 
 #OUTPUT SIZE FOR LINEAR MODEL
-OUTPUT_SIZE = 1
+OUTPUT_SIZE = 32
 
 #TRAINING SIZE
 TRAIN_SIZE = 0.8
@@ -87,7 +87,7 @@ class CaseSentimentLSTM(nn.Module):
 
 
         #2 Layered LSTM
-        self.lstm = nn.LSTM(embedding_dim, hidden_size, num_layers, batch_first = True, dropout = drop_rate)
+        self.lstm = nn.LSTM(embedding_dim, hidden_size, num_layers,batch_first = True,  dropout = drop_rate)
 
         #Dropout Layer to prevent overfit
         self.dropout = nn.Dropout()
@@ -98,14 +98,17 @@ class CaseSentimentLSTM(nn.Module):
         #Final Layer for Fact Positivity given the Party Label
         self.sig = nn.Sigmoid()
 
-    def forward(self, text, text_length):
+    def forward(self, text):
         
         #Embedding Layer
         embedded = self.dropout(self.word_embeddings(text))
-        #packed_embedded = nn.utils.rnn.pack_padded_sequence(embedded, text_length.to("cpu"))
+        # packed_embedded = nn.utils.rnn.pack_padded_sequence(embedded, text_length.to("cpu"), enforce_sorted = False)
 
         #LSTM Layer
         lstm_out, hidden  = self.lstm(embedded)
+
+        #unpack the lstm output
+        # out, output_lengths = nn.utils.rnn.pad_packed_sequence(lstm_out)
 
         #Dropout Layer
         out = self.dropout(lstm_out)
@@ -120,9 +123,11 @@ class CaseSentimentLSTM(nn.Module):
         sig_out = sig_out.view(BATCH_SIZE, -1)
         sig_out = sig_out[:,-1]
 
+        print(sig_out)
+
 
         # Return the propagated tensor
-        return out, hidden
+        return sig_out
 
     def init_hidden_state(self, batch_size):
         #creates the h0 layer
@@ -153,10 +158,9 @@ def train(model: CaseSentimentLSTM , iterator: torch.utils.data.DataLoader, opti
         
         text = batch["text"]
         text_length = batch["text_length"]
-        print(text)
 
         #Prediction and squeezing the predictions into 1 dimension
-        preds = model(text,text_length).squeeze(1)
+        preds = model(text)
 
         #Calculating the loss through the preds
         loss = criterion(preds, batch["label"])
@@ -262,19 +266,21 @@ def yield_tokens(iter):
 
 def collate_batch(batch):
     text_list, label_list, text_lengths = [],[],[]
-    max_vocab_size = 500
+    max_vocab_size = 1000
     for sample in batch:
         processed_text = vocab(tokenizer((sample["text"])))
-        while len(processed_text) < 500:
+        while len(processed_text) < max_vocab_size:
             processed_text.append(0)
+        while len(processed_text) > max_vocab_size:
+            processed_text.pop(-1)
         text_list.append(processed_text)
         text_lengths.append(sample["text_length"])
         label_list.append(sample["label"])
     
-    label_list = torch.tensor(label_list, dtype = torch.int64)
+    label_list = torch.tensor(label_list, dtype = torch.float64)
     text_lengths = torch.tensor(text_lengths, dtype = torch.int64)
     text_list = torch.tensor(text_list, dtype = torch.int64)
-    print(text_list.size())
+    text_list = torch.transpose(text_list, 0, 1)
     return {"label": label_list.to(device), "text":text_list.to(device), "text_length": text_lengths.to(device)}
 
 
