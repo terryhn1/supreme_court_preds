@@ -24,13 +24,13 @@ GLOVE300D = 'glove/glove.6B.200d.txt'
 HIDDEN_SIZE = 32
 
 #BATCH SIZE FOR FORWARD PASSING
-BATCH_SIZE = 32
+BATCH_SIZE = 64
 
 #HOW MANY LSTM MODELS SHOULD BE STACKED
 NUM_LAYERS = 2
 
 #OUTPUT SIZE FOR LINEAR MODEL
-OUTPUT_SIZE = 32
+OUTPUT_SIZE = 16
 
 #TRAINING SIZE
 TRAIN_SIZE = 0.8
@@ -158,6 +158,9 @@ def train(model: CaseSentimentLSTM , iterator: torch.utils.data.DataLoader, opti
         
         text = batch["text"]
         text_length = batch["text_length"]
+
+        if text.size(1) != BATCH_SIZE:
+            break
 
         #Prediction and squeezing the predictions into 1 dimension
         preds = model(text)
