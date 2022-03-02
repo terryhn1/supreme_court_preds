@@ -24,19 +24,22 @@ GLOVE300D = 'glove/glove.6B.200d.txt'
 HIDDEN_SIZE = 32
 
 #BATCH SIZE FOR FORWARD PASSING
-BATCH_SIZE = 64
+BATCH_SIZE = 16
 
 #HOW MANY LSTM MODELS SHOULD BE STACKED
 NUM_LAYERS = 2
 
 #OUTPUT SIZE FOR LINEAR MODEL
-OUTPUT_SIZE = 16
+OUTPUT_SIZE = 4
 
 #TRAINING SIZE
 TRAIN_SIZE = 0.8
 
 #TESTING SIZE
 TEST_SIZE = 0.2
+
+#EPOCHS FOR TRAINING AND EVALUATION
+N_EPOCH = 100
 
 #SETTING THE SEED TO 1 SO NO RANDOM COMPUTATION
 torch.manual_seed(0)
@@ -324,10 +327,23 @@ if __name__ == "__main__":
     model = model.to(device)
     criterion = criterion.to(device)
 
-    #TRAIN MODEL
-    train_loss, train_acc = train(model, train_loader, optimizer, criterion)
-    print(train_loss, train_acc)
-    valid_loss, valid_acc = evaluate(model, valid_loader, criterion)
-    print(valid_loss, valid_acc)
+    #EPOCHS
+    best_valid_loss = float('inf')
+
+    for epoch in range(N_EPOCH):
+        start_time  = time.time()
+        
+        train_loss, train_acc = train(model, train_loader, optimizer, criterion)
+        valid_loss, valid_acc = evaluate(model, valid_loader, criterion)
+
+        end_time = time.time()
+
+        if valid_loss <  best_valid_loss:
+            best_valid_loss = valid_loss
+            torch.save(model.state_dict(), 'judgement_preds-lstm.pt')
+        
+        print(f'Epoch: {epoch+1:02} | Epoch Time: {end_time - start_time}s', flush = True)
+        print(f'\tTrain Loss: {train_loss:.3f} | Train Acc: {train_acc*100:.3f}%', flush = True)
+        print(f'\tValid Loss: {valid_loss:.3f} | Valid Acc: {valid_acc * 100:.3f}%', flush = True)
 
 
