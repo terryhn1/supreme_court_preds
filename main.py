@@ -123,8 +123,6 @@ class CaseSentimentLSTM(nn.Module):
         sig_out = sig_out.view(BATCH_SIZE, -1)
         sig_out = sig_out[:,-1]
 
-        print(sig_out)
-
 
         # Return the propagated tensor
         return sig_out
@@ -194,7 +192,10 @@ def evaluate(model: CaseSentimentLSTM, iterator: torch.utils.data.DataLoader, cr
             text = batch["text"]
             text_length = batch["text_length"]
 
-            preds = model(text, text_length).squeeze(1)
+            if text.size(1) != BATCH_SIZE:
+                break
+
+            preds = model(text)
 
             loss = criterion(preds, batch["label"])
 
@@ -301,13 +302,16 @@ if __name__ == "__main__":
 
     train_indices, test_indices, _, _ = train_test_split(range(len(judg_data)), judg_data.targets
                                                         , stratify = judg_data.targets, test_size= TEST_SIZE, random_state = 1)
-    
+
+    valid_indices, test_indices = test_indices[:len(test_indices)//2], test_indices[len(test_indices)//2:]
 
     train_split = torch.utils.data.Subset(judg_data, train_indices)
     test_split = torch.utils.data.Subset(judg_data, test_indices)
+    valid_split = torch.utils.data.Subset(judg_data, valid_indices)
     
     train_loader = torch.utils.data.DataLoader(train_split, batch_size = BATCH_SIZE, shuffle = True, num_workers = 0, collate_fn = collate_batch)
     test_loader = torch.utils.data.DataLoader(test_split, batch_size = BATCH_SIZE, shuffle = True, num_workers = 0, collate_fn = collate_batch)
+    valid_loader = torch.utils.data.DataLoader(valid_split, batch_size = BATCH_SIZE, shuffle = True, num_workers = 0, collate_fn = collate_batch)
 
     #CREATING MODEL
     model = CaseSentimentLSTM(weights_matrix, HIDDEN_SIZE,OUTPUT_SIZE, NUM_LAYERS)
@@ -321,6 +325,9 @@ if __name__ == "__main__":
     criterion = criterion.to(device)
 
     #TRAIN MODEL
-    train(model, train_loader, optimizer, criterion)
+    train_loss, train_acc = train(model, train_loader, optimizer, criterion)
+    print(train_loss, train_acc)
+    valid_loss, valid_acc = evaluate(model, valid_loader, criterion)
+    print(valid_loss, valid_acc)
 
 
