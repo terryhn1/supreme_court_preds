@@ -23,10 +23,13 @@ GLOVE200D = '.vector_cache/glove.6B.200d.txt'
 GLOVE300D = '.vector_cache/glove.6B.200d.txt'
 
 #CONSTANT FOR HIDDEN DIM/SIZE
-HIDDEN_SIZE = 32
+HIDDEN_SIZE = 16
+
+#EMBEDDING DIM, CHANGE WHEN USING A DIFFERENT FILE
+EMBEDDING_DIM = 100
 
 #BATCH SIZE FOR FORWARD PASSING
-BATCH_SIZE = 8
+BATCH_SIZE = 64
 
 #HOW MANY LSTM MODELS SHOULD BE STACKED
 NUM_LAYERS = 2
@@ -35,13 +38,13 @@ NUM_LAYERS = 2
 OUTPUT_SIZE = 1
 
 #TRAINING SIZE
-TRAIN_SIZE = 0.8
+TRAIN_SIZE = 0.7
 
 #TESTING SIZE
 TEST_SIZE = 0.2
 
 #EPOCHS FOR TRAINING AND EVALUATION
-N_EPOCH = 5
+N_EPOCH = 20
 
 #SETTING THE SEED TO 1 SO NO RANDOM COMPUTATION
 torch.manual_seed(0)
@@ -80,22 +83,21 @@ due to lack of sufficient data already for training purposes. """
 
 class CaseSentimentLSTM(nn.Module):
     
-    def __init__(self, weights_matrix, hidden_size, output_size, num_layers, drop_rate = 0.5):
+    def __init__(self, vocab_size, embedding_dim, hidden_size, output_size, num_layers, pad_idx, drop_rate = 0.5):
         super(CaseSentimentLSTM, self).__init__()
         self.hidden_size = hidden_size
         self.output_size = output_size
         self.num_layers = num_layers
-        self.word_embeddings, embedding_dim = create_emb_layer(weights_matrix)
+        self.word_embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx = pad_idx)
 
         #Initializes the weights_matrix as the weights to be used in the current word_embeddings structure
-        self.word_embeddings.weight.data.copy_(torch.tensor(weights_matrix))
 
 
         #2 Layered LSTM
         self.lstm = nn.LSTM(embedding_dim, hidden_size, num_layers,  dropout = drop_rate, bidirectional = True)
 
         #Dropout Layer to prevent overfit
-        self.dropout = nn.Dropout()
+        self.dropout = nn.Dropout(drop_rate)
 
         #Fully Connected Linear Layer
         self.fc = nn.Linear(hidden_size * 2, output_size)
@@ -105,7 +107,7 @@ class CaseSentimentLSTM(nn.Module):
 
     def forward(self, text, text_length):
         #Embedding Layer
-        embedded = self.dropout(self.word_embeddings(torch.transpose(text, 0, 1)))
+        embedded = self.dropout(self.word_embedding(torch.transpose(text, 0, 1)))
         packed_embedded = nn.utils.rnn.pack_padded_sequence(embedded, text_length.to('cpu'))
 
 
@@ -245,15 +247,6 @@ def check_vocab_instances():
     
     return dataset, weights_matrix, words_found
 
-def create_emb_layer(weights_matrix, non_trainable = False):
-    """Creates the embedded layer without the initialization of the weights_matrix into the embedding."""
-    vocab_size, embedding_dim = weights_matrix.shape
-    emb_layer = nn.Embedding(vocab_size, embedding_dim)
-    
-    if non_trainable:
-        emb_layer.weight.requires_grad = False
-    
-    return emb_layer, embedding_dim
 
 def yield_tokens(iter):
     for text in iter:
@@ -285,17 +278,24 @@ if __name__ == "__main__":
     vocab = build_vocab_from_iterator(yield_tokens(dataset["textdata"]))
 
     #BUILD SPLITS
-    train_split, test_split = judg_data.split(split_ratio = 0.8, random_state = random.seed(0))
+    train_split, test_split = judg_data.split(split_ratio = TRAIN_SIZE, random_state = random.seed(0))
+    print(len(train_split), len(test_split))
 
-    train_split, valid_split = judg_data.split(split_ratio = 0.8, random_state = random.seed(0))
+    #train_split, valid_split = judg_data.split(split_ratio = 0.8, random_state = random.seed(0))
 
-    train_loader, valid_loader, test_loader = data.BucketIterator.splits((train_split, valid_split, test_split), batch_size = BATCH_SIZE, device = device, sort_key = lambda x: len(x.text), shuffle = True, sort_within_batch = True, sort = False)
+    train_loader, test_loader = data.BucketIterator.splits((train_split, test_split), batch_size = BATCH_SIZE, device = device, sort_key = lambda x: len(x.text), shuffle = True, sort_within_batch = True, sort = False)
 
     #CREATING MODEL
-    model = CaseSentimentLSTM(weights_matrix, HIDDEN_SIZE,OUTPUT_SIZE, NUM_LAYERS)
-    
+    model = CaseSentimentLSTM(len(TEXT.vocab), EMBEDDING_DIM, HIDDEN_SIZE,OUTPUT_SIZE, NUM_LAYERS, TEXT.vocab.stoi[TEXT.pad_token])
+    model.word_embedding.weight.data.copy_(TEXT.vocab.vectors)
+
+    #Fixing the the unk and pad token
+    UNK_IDX = TEXT.vocab.stoi[TEXT.unk_token]
+    model.word_embedding.weight.data[UNK_IDX] = torch.zeros(EMBEDDING_DIM)
+    model.word_embedding.weight.data[TEXT.vocab.stoi[TEXT.pad_token]] = torch.zeros(EMBEDDING_DIM)
+
     #CREATE OPTIMIZER AND CRITERION
-    optimizer = optim.Adam(model.parameters())
+    optimizer = optim.AdamW(model.parameters(), lr = 0.003, weight_decay = 0.3)
     criterion = nn.BCEWithLogitsLoss()
 
     #SEND TO GPU
@@ -309,7 +309,7 @@ if __name__ == "__main__":
         start_time  = time.time()
         
         train_loss, train_acc = train(model, train_loader, optimizer, criterion)
-        valid_loss, valid_acc = evaluate(model, valid_loader, criterion)
+        valid_loss, valid_acc = evaluate(model, test_loader, criterion)
 
         end_time = time.time()
 

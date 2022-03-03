@@ -18,7 +18,7 @@ def extract_data():
     clean = re.compile('<.*?>')
     #Takes out data for future analysis
     for i in range(len(data)):
-        textdata = re.sub(clean, '', data["facts"][i]).strip()
+        textdata = clean_text(re.sub(clean, '', data["facts"][i]).strip())
 
         cases.append({"textdata": textdata, "seq_len": data["facts_len"][i], "id": data["ID"][i], "case_name": data["name"][i], "first_party": data["first_party"][i],
         "second_party": data["second_party"][i], "winner_label": 1 if data["first_party_winner"][i] else 0,
