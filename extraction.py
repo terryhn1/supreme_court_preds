@@ -8,27 +8,6 @@ from sklearn.model_selection import train_test_split
 from nltk import word_tokenize
 from torchtext.vocab import build_vocab_from_iterator
 from torchtext.data.utils import get_tokenizer
-
-
-class JudgmentDataset(torch.utils.data.Dataset):
-        
-
-    def __init__(self, judg_dataframe):
-        self.x_train = judg_dataframe["textdata"]
-
-        self.y_train = judg_dataframe["winner_label"]
-
-        self.targets = judg_dataframe["winner_label"]
-    
-    def __len__(self):
-        return len(self.y_train)
-    
-    def __getitem__(self, idx):
-        return {'text': self.x_train[idx], 'label': self.y_train[idx], 'text_length': len(self.x_train[idx])}
-
-
-
-
 def extract_data():
     """Takes the information from the CSV File and packages into a Pandas Dataframe for further usage"""    
 

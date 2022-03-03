@@ -1,9 +1,11 @@
 from tkinter import HIDDEN
+from unicodedata import bidirectional
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 from torchtext.vocab import build_vocab_from_iterator
 from torchtext.data.utils import get_tokenizer
 from torchtext import datasets
+from torchtext.legacy import data
 import torch.optim as optim
 import numpy as np
 import time
@@ -15,22 +17,22 @@ import extraction
 
 
 #CONSTANTS for file reads
-GLOVE50D = 'glove/glove.6B.50d.txt'
-GLOVE100D = 'glove/glove.6B.100d.txt'
-GLOVE200D = 'glove/glove.6B.200d.txt'
-GLOVE300D = 'glove/glove.6B.200d.txt'
+GLOVE50D = '.vector_cache/glove.6B.50d.txt'
+GLOVE100D = '.vector_cache/glove.6B.100d.txt'
+GLOVE200D = '.vector_cache/glove.6B.200d.txt'
+GLOVE300D = '.vector_cache/glove.6B.200d.txt'
 
 #CONSTANT FOR HIDDEN DIM/SIZE
 HIDDEN_SIZE = 32
 
 #BATCH SIZE FOR FORWARD PASSING
-BATCH_SIZE = 16
+BATCH_SIZE = 8
 
 #HOW MANY LSTM MODELS SHOULD BE STACKED
 NUM_LAYERS = 2
 
 #OUTPUT SIZE FOR LINEAR MODEL
-OUTPUT_SIZE = 4
+OUTPUT_SIZE = 1
 
 #TRAINING SIZE
 TRAIN_SIZE = 0.8
@@ -39,7 +41,7 @@ TRAIN_SIZE = 0.8
 TEST_SIZE = 0.2
 
 #EPOCHS FOR TRAINING AND EVALUATION
-N_EPOCH = 100
+N_EPOCH = 5
 
 #SETTING THE SEED TO 1 SO NO RANDOM COMPUTATION
 torch.manual_seed(0)
@@ -90,45 +92,38 @@ class CaseSentimentLSTM(nn.Module):
 
 
         #2 Layered LSTM
-        self.lstm = nn.LSTM(embedding_dim, hidden_size, num_layers,batch_first = True,  dropout = drop_rate)
+        self.lstm = nn.LSTM(embedding_dim, hidden_size, num_layers,  dropout = drop_rate, bidirectional = True)
 
         #Dropout Layer to prevent overfit
         self.dropout = nn.Dropout()
 
         #Fully Connected Linear Layer
-        self.fc = nn.Linear(hidden_size, output_size)
+        self.fc = nn.Linear(hidden_size * 2, output_size)
 
         #Final Layer for Fact Positivity given the Party Label
         self.sig = nn.Sigmoid()
 
-    def forward(self, text):
-        
+    def forward(self, text, text_length):
         #Embedding Layer
-        embedded = self.dropout(self.word_embeddings(text))
-        # packed_embedded = nn.utils.rnn.pack_padded_sequence(embedded, text_length.to("cpu"), enforce_sorted = False)
+        embedded = self.dropout(self.word_embeddings(torch.transpose(text, 0, 1)))
+        packed_embedded = nn.utils.rnn.pack_padded_sequence(embedded, text_length.to('cpu'))
+
 
         #LSTM Layer
-        lstm_out, hidden  = self.lstm(embedded)
+        lstm_out, (hidden, cell)  = self.lstm(packed_embedded)
 
         #unpack the lstm output
-        # out, output_lengths = nn.utils.rnn.pad_packed_sequence(lstm_out)
+        out, output_lengths = nn.utils.rnn.pad_packed_sequence(lstm_out)
 
-        #Dropout Layer
-        out = self.dropout(lstm_out)
+
+        #Apply another forward pass then put in the Dropout Layer
+        out = self.dropout(torch.cat((hidden[-2,:,:], hidden[-1,:,:]), dim = 1))
         
         #Fully Connected Layer
         out = self.fc(out)
-        
-        # Sigmoid Layer
-        sig_out = self.sig(out)
-
-        #reshape Sigmoid output to fit batch size
-        sig_out = sig_out.view(BATCH_SIZE, -1)
-        sig_out = sig_out[:,-1]
-
 
         # Return the propagated tensor
-        return sig_out
+        return out
 
     def init_hidden_state(self, batch_size):
         #creates the h0 layer
@@ -136,6 +131,7 @@ class CaseSentimentLSTM(nn.Module):
 
 def binary_accuracy(preds, y):
     """Returns back the accuracy rate of the predictions given"""
+    #Sigmoid Layer used here for accuracy predictions
     rounded_preds = torch.round(torch.sigmoid(preds))
     correct = (rounded_preds == y).float()
     acc = correct.mean()
@@ -149,28 +145,24 @@ def train(model: CaseSentimentLSTM , iterator: torch.utils.data.DataLoader, opti
     epoch_loss = 0
     epoch_acc = 0
 
-    #Trains the model first on what info has alerady been fed from the word embeddings
+    #Trains the model first on what info has already been fed from the word embeddings
     model.train()
 
     #Goes batch by batch and attempts to make predictions from the text and text_length that is passed to the base nn.Module Class
     for batch in iterator:
 
         optimizer.zero_grad()
-        
-        text = batch["text"]
-        text_length = batch["text_length"]
-
-        if text.size(1) != BATCH_SIZE:
-            break
+        text, text_lengths = batch.text
 
         #Prediction and squeezing the predictions into 1 dimension
-        preds = model(text)
+        preds = model(text, text_lengths).squeeze(1)
 
         #Calculating the loss through the preds
-        loss = criterion(preds, batch["label"])
+        loss = criterion(preds, batch.label)
 
         #Calculating the
-        acc = binary_accuracy(preds, batch["label"])
+        acc = binary_accuracy(preds, batch.label)
+
 
         loss.backward()
 
@@ -192,17 +184,13 @@ def evaluate(model: CaseSentimentLSTM, iterator: torch.utils.data.DataLoader, cr
 
     with torch.no_grad():
         for batch in iterator:
-            text = batch["text"]
-            text_length = batch["text_length"]
+            text, text_length = batch.text
 
-            if text.size(1) != BATCH_SIZE:
-                break
+            preds = model(text, text_length).squeeze(1)
 
-            preds = model(text)
+            loss = criterion(preds, batch.label)
 
-            loss = criterion(preds, batch["label"])
-
-            acc = binary_accuracy(preds, batch["label"])
+            acc = binary_accuracy(preds, batch.label)
 
             epoch_loss += loss.item()
             epoch_acc += acc.item()
@@ -271,26 +259,6 @@ def yield_tokens(iter):
     for text in iter:
         yield tokenizer(text)
 
-def collate_batch(batch):
-    text_list, label_list, text_lengths = [],[],[]
-    max_vocab_size = 1000
-    for sample in batch:
-        processed_text = vocab(tokenizer((sample["text"])))
-        while len(processed_text) < max_vocab_size:
-            processed_text.append(0)
-        while len(processed_text) > max_vocab_size:
-            processed_text.pop(-1)
-        text_list.append(processed_text)
-        text_lengths.append(sample["text_length"])
-        label_list.append(sample["label"])
-    
-    label_list = torch.tensor(label_list, dtype = torch.float64)
-    text_lengths = torch.tensor(text_lengths, dtype = torch.int64)
-    text_list = torch.tensor(text_list, dtype = torch.int64)
-    text_list = torch.transpose(text_list, 0, 1)
-    return {"label": label_list.to(device), "text":text_list.to(device), "text_length": text_lengths.to(device)}
-
-
 if __name__ == "__main__":
 
     #INITIALIZING GLOVE
@@ -298,23 +266,30 @@ if __name__ == "__main__":
     dataset, weights_matrix, words_found = check_vocab_instances()
 
     #CREATING DATASETS
-    judg_data = extraction.JudgmentDataset(dataset)
+    dataset.to_csv('csv_data/dataset.csv')
+
+    #TEXT AND LABELS
+    TEXT = data.Field(tokenize = tokenizer, use_vocab = True, lower = True, batch_first = True, include_lengths = True)
+    LABEL = data.LabelField(dtype = torch.float, batch_first = True, sequential = False)
+
+    fields = [('index', LABEL),("text", TEXT), ("length", LABEL), ("id", LABEL), ('case_name', TEXT), ("first_party", TEXT), 
+    ('second_party',TEXT), ('label', LABEL), ('timeline', TEXT), ('decision_type', TEXT)]
     
+    judg_data = data.TabularDataset('csv_data/dataset.csv', format = 'csv', fields = fields, skip_header = True)
+
+    TEXT.build_vocab(judg_data, vectors = 'glove.6B.100d', min_freq = 1, unk_init = torch.Tensor.normal_)
+    LABEL.build_vocab(judg_data)
+    
+    #BUILD VOCAB
     global vocab
-    vocab = build_vocab_from_iterator(yield_tokens(judg_data.x_train))
+    vocab = build_vocab_from_iterator(yield_tokens(dataset["textdata"]))
 
-    train_indices, test_indices, _, _ = train_test_split(range(len(judg_data)), judg_data.targets
-                                                        , stratify = judg_data.targets, test_size= TEST_SIZE, random_state = 1)
+    #BUILD SPLITS
+    train_split, test_split = judg_data.split(split_ratio = 0.8, random_state = random.seed(0))
 
-    valid_indices, test_indices = test_indices[:len(test_indices)//2], test_indices[len(test_indices)//2:]
+    train_split, valid_split = judg_data.split(split_ratio = 0.8, random_state = random.seed(0))
 
-    train_split = torch.utils.data.Subset(judg_data, train_indices)
-    test_split = torch.utils.data.Subset(judg_data, test_indices)
-    valid_split = torch.utils.data.Subset(judg_data, valid_indices)
-    
-    train_loader = torch.utils.data.DataLoader(train_split, batch_size = BATCH_SIZE, shuffle = True, num_workers = 0, collate_fn = collate_batch)
-    test_loader = torch.utils.data.DataLoader(test_split, batch_size = BATCH_SIZE, shuffle = True, num_workers = 0, collate_fn = collate_batch)
-    valid_loader = torch.utils.data.DataLoader(valid_split, batch_size = BATCH_SIZE, shuffle = True, num_workers = 0, collate_fn = collate_batch)
+    train_loader, valid_loader, test_loader = data.BucketIterator.splits((train_split, valid_split, test_split), batch_size = BATCH_SIZE, device = device, sort_key = lambda x: len(x.text), shuffle = True, sort_within_batch = True, sort = False)
 
     #CREATING MODEL
     model = CaseSentimentLSTM(weights_matrix, HIDDEN_SIZE,OUTPUT_SIZE, NUM_LAYERS)
@@ -345,5 +320,3 @@ if __name__ == "__main__":
         print(f'Epoch: {epoch+1:02} | Epoch Time: {end_time - start_time}s', flush = True)
         print(f'\tTrain Loss: {train_loss:.3f} | Train Acc: {train_acc*100:.3f}%', flush = True)
         print(f'\tValid Loss: {valid_loss:.3f} | Valid Acc: {valid_acc * 100:.3f}%', flush = True)
-
-
