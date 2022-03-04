@@ -9,3 +9,5 @@ glove/glove.6B.50d.txt
 .vector_cache/glove.6B.300d.txt
 .vector_cache/glove.6B.50d.txt
 .vector_cache/glove.6B.zip
+jsonl/dev.jsonl
+*.jsonl

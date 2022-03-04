@@ -44,7 +44,7 @@ TRAIN_SIZE = 0.7
 TEST_SIZE = 0.2
 
 #EPOCHS FOR TRAINING AND EVALUATION
-N_EPOCH = 20
+N_EPOCH = 10
 
 #SETTING THE SEED TO 1 SO NO RANDOM COMPUTATION
 torch.manual_seed(0)
@@ -254,28 +254,18 @@ def yield_tokens(iter):
 
 if __name__ == "__main__":
 
-    #INITIALIZING GLOVE
-    initialize_glove()
-    dataset, weights_matrix, words_found = check_vocab_instances()
-
-    #CREATING DATASETS
-    dataset.to_csv('csv_data/dataset.csv')
-
     #TEXT AND LABELS
     TEXT = data.Field(tokenize = tokenizer, use_vocab = True, lower = True, batch_first = True, include_lengths = True)
     LABEL = data.LabelField(dtype = torch.float, batch_first = True, sequential = False)
 
-    fields = [('index', LABEL),("text", TEXT), ("length", LABEL), ("id", LABEL), ('case_name', TEXT), ("first_party", TEXT), 
-    ('second_party',TEXT), ('label', LABEL), ('timeline', TEXT), ('decision_type', TEXT)]
+    fields = [('index', LABEL),("text", TEXT), ('case_name', TEXT), ("first_party", TEXT), 
+    ('second_party',TEXT), ('label', LABEL)]
     
     judg_data = data.TabularDataset('csv_data/dataset.csv', format = 'csv', fields = fields, skip_header = True)
 
     TEXT.build_vocab(judg_data, vectors = 'glove.6B.100d', min_freq = 1, unk_init = torch.Tensor.normal_)
     LABEL.build_vocab(judg_data)
-    
-    #BUILD VOCAB
-    global vocab
-    vocab = build_vocab_from_iterator(yield_tokens(dataset["textdata"]))
+
 
     #BUILD SPLITS
     train_split, test_split = judg_data.split(split_ratio = TRAIN_SIZE, random_state = random.seed(0))

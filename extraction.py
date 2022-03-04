@@ -1,4 +1,6 @@
 from distutils.command.build import build
+import json
+from cv2 import mean
 import pandas as pd
 import re
 import torch
@@ -18,12 +20,9 @@ def extract_data():
     clean = re.compile('<.*?>')
     #Takes out data for future analysis
     for i in range(len(data)):
-        textdata = clean_text(re.sub(clean, '', data["facts"][i]).strip())
+        textdata = re.sub(clean, '', data["facts"][i]).strip()
 
-        cases.append({"textdata": textdata, "seq_len": data["facts_len"][i], "id": data["ID"][i], "case_name": data["name"][i], "first_party": data["first_party"][i],
-        "second_party": data["second_party"][i], "winner_label": 1 if data["first_party_winner"][i] else 0,
-        "timeline": data["term"][i], "decision_type": data["decision_type"][i]
-        })
+        cases.append({"textdata": textdata, "case_name":data["name"][i],"first_party": data["first_party"][i], "second_party": data["second_party"][i], "label": 1 if data["first_party_winner"][i] else 0})
 
     #Converts the dictionary into a practical and usable dataset for Pytorch
     #the column 'first_party_winner' represents the label that should be predicted
@@ -34,36 +33,82 @@ def extract_data():
 
     return dataset, text_corpus
 
-def clean_text(text):
-    """Takes out the stopwords and the punctuations from the data before feeding it into gloVe vector dictionary"""
+def extract_data_EU():
+    with open('jsonl/dev.jsonl') as f:
+        euDevCourtData = [json.loads(line) for line in f]
+    with open('jsonl/train.jsonl') as f1:
+        euTrainCourtData = [json.loads(line) for line in f1]
+    with open('jsonl/test.jsonl') as f2:
+        euTestCourtData = [json.loads(line) for line in f2]
 
 
-    stopwords = ["a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any", "are", "as", "at", "be", "because", 
-             "been", "before", "being", "below", "between", "both", "but", "by", "could", "did", "do", "does", "doing", "down", "during",
-             "each", "few", "for", "from", "further", "had", "has", "have", "having", "he", "he'd", "he'll", "he's", "her", "here", 
-             "here's", "hers", "herself", "him", "himself", "his", "how", "how's", "i", "i'd", "i'll", "i'm", "i've", "if", "in", "into",
-             "is", "it", "it's", "its", "itself", "let's", "me", "more", "most", "my", "myself", "nor", "of", "on", "once", "only", "or",
-             "other", "ought", "our", "ours", "ourselves", "out", "over", "own", "same", "she", "she'd", "she'll", "she's", "should", 
-             "so", "some", "such", "than", "that", "that's", "the", "their", "theirs", "them", "themselves", "then", "there", "there's",
-             "these", "they", "they'd", "they'll", "they're", "they've", "this", "those", "through", "to", "too", "under", "until", "up",
-             "very", "was", "we", "we'd", "we'll", "we're", "we've", "were", "what", "what's", "when", "when's", "where", "where's",
-             "which", "while", "who", "who's", "whom", "why", "why's", "with", "would", "you", "you'd", "you'll", "you're", "you've",
-             "your", "yours", "yourself", "yourselves"]
+    cases = list()
+    clean = re.compile('<.*?>')
 
-    for word in stopwords:
-        text = text.replace(word, "")
+    for each in euDevCourtData:
+        string_textdata = ""
+        for fact in each['facts']:
+            string_textdata += fact[3:]
+        textdata = re.sub(clean, '', string_textdata).strip()
+        favored = ''
+        if len(each["violated_articles"]) > 0:
+            favored = 0
+        else:
+            favored = 1
+        cases.append({"textdata":textdata, "case_name": each['title'], "first_party": ",".join(each['applicants']), "second_party": ",".join(each["defendants"]), "label": favored})
 
-    for punct in [".", ",", "!", "?"]:
-        text = text.replace(punct, "")
-
+    for each in euTrainCourtData:
+        string_textdata = ""
+        for fact in each['facts']:
+            string_textdata += fact[3:]
+        textdata = re.sub(clean, '', string_textdata).strip()
+        favored = ''
+        if len(each["violated_articles"]) > 0:
+            favored = 0
+        else:
+            favored = 1
+        cases.append({"textdata": textdata, "case_name": each['title'], "first_party": ",".join(each['applicants']), "second_party": ",".join(each["defendants"]), "label": favored})
     
-    return text
+    for each in euTestCourtData:
+        string_textdata = ""
+        for fact in each['facts']:
+            string_textdata += fact[3:]
+        textdata = re.sub(clean, '', string_textdata).strip()
+        favored = ''
+        if len(each["violated_articles"]) > 0:
+            favored = 0
+        else:
+            favored = 1
+        cases.append({"textdata": textdata, "case_name": each['title'], "first_party": ",".join(each['applicants']), "second_party": ",".join(each["defendants"]), "label": favored})
+
+    #Truncating the textdata: range of mean to max
+    length_list = [len(case["textdata"]) for case in cases]
+    mean_length = int(sum(length_list) / len(cases))
+    new_cases = remove_outliers(cases)
+    print(len(new_cases))
+    truncate_text(cases, mean_length)
+    return new_cases
 
 
-def truncate_data(seq_length, dataset):
-    pass
+def remove_outliers(data, min_length = 1000, max_length = 30000):
+    #returns a new list to remove outlier cases that might not be optimal for computation for training or testing
+    copy = list()
+    for case in data:
+        if len(case["textdata"]) < max_length and len(case["textdata"]) > min_length:
+            copy.append(case)
+    
+    return copy
+
+def truncate_text(data, max_length):
+    #modifier to truncate the text data inside
+    for i in range(len(data)):
+        if len(data[i]["textdata"]) > max_length:
+            data[i]["textdata"] = data[i]["textdata"][:max_length]
+    
 
 if __name__ == "__main__":
-    dataset, text_corpus = extract_data()
+    cases = extract_data_EU()
+    dataframe = pd.DataFrame(cases)
+    dataframe.to_csv('csv_data/eu_human_rights.csv')
 
     
