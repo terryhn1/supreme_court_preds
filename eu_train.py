@@ -8,7 +8,7 @@ import torch.optim as optim
 
 
 HIDDEN_SIZE = 16
-BATCH_SIZE = 128
+BATCH_SIZE = 64
 
 
 tokenizer = main.tokenizer

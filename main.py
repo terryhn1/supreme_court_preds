@@ -52,6 +52,8 @@ random.seed(0)
 
 #SETTING DEVICE
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print(torch.cuda.is_available())
+print(device)
 
 #Main Tokenizer
 tokenizer = get_tokenizer("basic_english")
