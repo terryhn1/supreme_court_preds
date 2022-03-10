@@ -7,21 +7,62 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import extraction
 
-#dataset, text_corpus = extraction.extract_data()
-dataset, text_corpus = extraction.extract_data_EU()
 
-fact_lengths = dataset['facts_len']
+def us_histogram():
+    dataset, text_corpus = extraction.extract_data()
 
-doc_lens = []
-for i in fact_lengths:
-    doc_lens.append(i)
+    fact_lengths = dataset['facts_len']
 
-fig, ax = plt.subplots(figsize =(10, 7))
-ax.hist(doc_lens, bins = 10)
+    doc_lens = []
+    for i in fact_lengths:
+        doc_lens.append(i)
 
-ax.set_title("EU Court Document Lengths (Facts)")
-ax.set_xlabel('Document Length')
-ax.set_ylabel('Frequency')
+    fig, ax = plt.subplots(figsize =(10, 7))
+    ax.hist(doc_lens, bins = 10)
 
-plt.show()
+    ax.set_title("Supreme Court Document Lengths (Facts)")
+    ax.set_xlabel('Document Length')
+    ax.set_ylabel('Frequency')
 
+    plt.show()
+
+
+def eu_histogram_truncated():
+    dataset = extraction.extract_data_EU()
+    print(len(dataset[0]['textdata']))
+
+    doc_lengths = []
+    for i in range(len(dataset)):
+        doc_lengths.append(len(dataset[i]['textdata']))
+
+    fig, ax = plt.subplots(figsize =(10, 7))
+    ax.hist(doc_lengths, bins = 8)
+
+    ax.set_title("EU Court Document Lengths (Truncated Facts)")
+    ax.set_xlabel('Document Length')
+    ax.set_ylabel('Frequency')
+
+    plt.show()
+
+def eu_histogram_nontruncated():
+    dataset = extraction.extract_data_EU()\
+
+    doc_lengths = []
+    for i in range(len(dataset)):
+        doc_lengths.append(len(dataset[i]['textdata']))
+
+    #print(doc_lengths)
+
+    fig, ax = plt.subplots(figsize =(10, 7))
+    ax.hist(doc_lengths, bins = 10)
+
+    ax.set_title("EU Court Document Lengths (Nontruncated Facts)")
+    ax.set_xlabel('Document Length')
+    ax.set_ylabel('Frequency')
+
+    plt.show()
+
+if __name__ == "__main__":
+    us_histogram()
+    # eu_histogram_truncated()
+    # eu_histogram_nontruncated()
