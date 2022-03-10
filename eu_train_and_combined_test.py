@@ -34,7 +34,7 @@ if __name__ == "__main__":
     #training dataset
     eu_data = data.TabularDataset('csv_data/eu_human_rights.csv', format = 'csv', fields = fields, skip_header = True)
     #validation dataset
-    us_data = data.TabularDataset('csv_data/dataset.csv', format = 'csv', fields = fields, skip_header = True)
+    #combined eu and us
 
     TEXT.build_vocab(eu_data, vectors = 'glove.6B.100d', min_freq = 1, unk_init = torch.Tensor.normal_)
     LABEL.build_vocab(eu_data)

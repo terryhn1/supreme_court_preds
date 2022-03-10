@@ -32,9 +32,9 @@ if __name__ == "__main__":
     ('second_party',TEXT), ('label', LABEL)]
     
     #training dataset
-    eu_data = data.TabularDataset('csv_data/eu_human_rights.csv', format = 'csv', fields = fields, skip_header = True)
-    #validation dataset
     us_data = data.TabularDataset('csv_data/dataset.csv', format = 'csv', fields = fields, skip_header = True)
+    #validation dataset
+    eu_data = data.TabularDataset('csv_data/eu_human_rights.csv', format = 'csv', fields = fields, skip_header = True)
 
     TEXT.build_vocab(eu_data, vectors = 'glove.6B.100d', min_freq = 1, unk_init = torch.Tensor.normal_)
     LABEL.build_vocab(eu_data)
@@ -46,7 +46,7 @@ if __name__ == "__main__":
 
     #train_split, valid_split = judg_data.split(split_ratio = 0.8, random_state = random.seed(0))
 
-    train_loader, test_loader = data.BucketIterator.splits((eu_data, us_data), batch_size=32, device = device, sort_key = lambda x: len(x.text), shuffle = True, sort_within_batch = True, sort = False)
+    train_loader, test_loader = data.BucketIterator.splits((us_data, eu_data), batch_size=32, device = device, sort_key = lambda x: len(x.text), shuffle = True, sort_within_batch = True, sort = False)
     print(train_loader, test_loader)
 
     #CREATING MODEL

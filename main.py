@@ -52,8 +52,6 @@ random.seed(0)
 
 #SETTING DEVICE
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print(torch.cuda.is_available())
-print(device)
 
 #Main Tokenizer
 tokenizer = get_tokenizer("basic_english")
@@ -154,7 +152,7 @@ def train(model: CaseSentimentLSTM , iterator: torch.utils.data.DataLoader, opti
 
     #Goes batch by batch and attempts to make predictions from the text and text_length that is passed to the base nn.Module Class
     for batch in iterator:
-
+        print(batch)
         optimizer.zero_grad()
         text, text_lengths = batch.text
 
