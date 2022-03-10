@@ -1,10 +1,5 @@
-from tkinter import HIDDEN
-from unicodedata import bidirectional
-from sklearn.metrics import accuracy_score
-from sklearn.model_selection import train_test_split
 from torchtext.vocab import build_vocab_from_iterator
 from torchtext.data.utils import get_tokenizer
-from torchtext import datasets
 from torchtext.legacy import data
 import torch.optim as optim
 import numpy as np
@@ -12,7 +7,6 @@ import time
 import random
 import torch
 import torch.nn as nn
-import sklearn
 import extraction
 
 
@@ -198,59 +192,6 @@ def evaluate(model: CaseSentimentLSTM, iterator: torch.utils.data.DataLoader, cr
             epoch_acc += acc.item()
     
     return epoch_loss/len(iterator), epoch_acc/len(iterator)
-
-
-#Initialize a dictionary to hold the values in the glove file
-def initialize_glove():
-    """A function made in order to take what is in the gloVe files and convert it into a workable dictionary for the code"""
-    global glove
-    glove = {}
-
-    #Create a Timer to see the load time of the file
-    start = time.time()
-
-    #Opens the glove file and starts uploading its vectors(50,100, 200, 300) into a dictionary for Python usage
-    with open(GLOVE100D, encoding= "utf-8") as file:
-        for line in file:
-            dimensions = line.split()
-            word = dimensions[0]
-            dimensions = np.asarray(dimensions[1:], dtype = "float32")
-            glove[word] = dimensions
-
-    end = time.time()
-    print("Loading time for GLOVE:", end-start, " seconds")
-
-
-def check_vocab_instances():
-    """Adds in new vocab from the text_data that could not be found in the gloVe file in order to not lead to any errors in the future"""
-    vocab = set()
-    emb_dim = len(glove["the"])
-    dataset, corpus = extraction.extract_data()
-
-    #A for loop over the text corpus to see any unique instances
-    for case in corpus:
-        for word in case:
-            vocab.add(word)
-
-    #Sets the original weights_matrix that will be used later to create the Embedding Layer
-    matrix_size = len(vocab)
-    weights_matrix = np.zeros((matrix_size, emb_dim))
-    words_found = 0
-
-    #Checks for the existence of the key. If it doesn't exist, then add it into the weights matrix with a random vector matrix
-    for i, word in enumerate(vocab):
-        try:
-            weights_matrix[i] = glove[word]
-            words_found +=1
-        except KeyError:
-            weights_matrix[i] = np.random.normal(scale =0.6, size = (emb_dim,))
-    
-    return dataset, weights_matrix, words_found
-
-
-def yield_tokens(iter):
-    for text in iter:
-        yield tokenizer(text)
 
 if __name__ == "__main__":
 
