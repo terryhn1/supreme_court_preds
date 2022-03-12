@@ -146,7 +146,6 @@ def train(model: CaseSentimentLSTM , iterator: torch.utils.data.DataLoader, opti
 
     #Goes batch by batch and attempts to make predictions from the text and text_length that is passed to the base nn.Module Class
     for batch in iterator:
-        print(batch)
         optimizer.zero_grad()
         text, text_lengths = batch.text
 
@@ -202,7 +201,7 @@ if __name__ == "__main__":
     fields = [('index', LABEL),("text", TEXT), ('case_name', TEXT), ("first_party", TEXT), 
     ('second_party',TEXT), ('label', LABEL)]
     
-    judg_data = data.TabularDataset('csv_data/dataset.csv', format = 'csv', fields = fields, skip_header = True)
+    judg_data = data.TabularDataset('csv_data/supreme_court.csv', format = 'csv', fields = fields, skip_header = True)
 
     TEXT.build_vocab(judg_data, vectors = 'glove.6B.100d', min_freq = 1, unk_init = torch.Tensor.normal_)
     LABEL.build_vocab(judg_data)

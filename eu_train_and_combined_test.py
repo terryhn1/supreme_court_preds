@@ -31,24 +31,20 @@ if __name__ == "__main__":
     fields = [('index', LABEL),("text", TEXT), ('case_name', TEXT), ("first_party", TEXT), 
     ('second_party',TEXT), ('label', LABEL)]
     
-    #training dataset
-    eu_data = data.TabularDataset('csv_data/eu_human_rights.csv', format = 'csv', fields = fields, skip_header = True)
     #validation dataset
     #combined eu and us
-    combined_data = data.TabularDataset('', format = 'csv', fields = fields, skip_header = True)
+    combined_data = data.TabularDataset('csv_data/combined_data.csv', format = 'csv', fields = fields, skip_header = True)
+    print(combined_data.fields)
 
 
-    TEXT.build_vocab(eu_data, vectors = 'glove.6B.100d', min_freq = 1, unk_init = torch.Tensor.normal_)
-    LABEL.build_vocab(eu_data)
+    TEXT.build_vocab(combined_data, vectors = 'glove.6B.100d', min_freq = 1, unk_init = torch.Tensor.normal_)
+    LABEL.build_vocab(combined_data)
 
 
     #BUILD SPLITS
-    # train_split, test_split = eu_data.split(split_ratio = main.TRAIN_SIZE, random_state = random.seed(0))
-    # print(len(train_split), len(test_split))
+    train_split, valid_split = combined_data.split(split_ratio = lstm_sentiment_analysis.TRAIN_SIZE, random_state = random.seed(0))
 
-    #train_split, valid_split = judg_data.split(split_ratio = 0.8, random_state = random.seed(0))
-
-    train_loader, test_loader = data.BucketIterator.splits((eu_data, combined_data), batch_size=32, device = device, sort_key = lambda x: len(x.text), shuffle = True, sort_within_batch = True, sort = False)
+    train_loader, test_loader = data.BucketIterator.splits((train_split, valid_split), batch_size=32, device = device, sort_key = lambda x: len(x.text), shuffle = True, sort_within_batch = True, sort = False)
     print(train_loader, test_loader)
 
     #CREATING MODEL

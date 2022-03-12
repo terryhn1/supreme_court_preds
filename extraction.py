@@ -106,8 +106,10 @@ def truncate_text(data, max_length):
     
 
 if __name__ == "__main__":
-    cases = extract_data_EU()
-    dataframe = pd.DataFrame(cases)
-    dataframe.to_csv('csv_data/eu_human_rights.csv')
+    eu = pd.DataFrame(extract_data_EU())
+    us = pd.DataFrame(extract_data()[0])
 
+    combined = pd.concat([eu, us])
+    
+    combined.to_csv('csv_data/combined_data.csv')
     

@@ -1,5 +1,5 @@
 from cgi import test
-import main
+import lstm_sentiment_analysis
 import torch
 import random
 import time
@@ -18,7 +18,7 @@ HIDDEN_SIZE = 16
 BATCH_SIZE = 64
 
 
-tokenizer = main.tokenizer
+tokenizer = lstm_sentiment_analysis.tokenizer
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(device)
 
@@ -32,9 +32,10 @@ if __name__ == "__main__":
     ('second_party',TEXT), ('label', LABEL)]
     
     #training dataset
-    us_data = data.TabularDataset('csv_data/dataset.csv', format = 'csv', fields = fields, skip_header = True)
+    us_data = data.TabularDataset('csv_data/supreme_court.csv', format = 'csv', fields = fields, skip_header = True)
     #validation dataset
     eu_data = data.TabularDataset('csv_data/eu_human_rights.csv', format = 'csv', fields = fields, skip_header = True)
+    
 
     TEXT.build_vocab(eu_data, vectors = 'glove.6B.100d', min_freq = 1, unk_init = torch.Tensor.normal_)
     LABEL.build_vocab(eu_data)
@@ -46,17 +47,19 @@ if __name__ == "__main__":
 
     #train_split, valid_split = judg_data.split(split_ratio = 0.8, random_state = random.seed(0))
 
-    train_loader, test_loader = data.BucketIterator.splits((us_data, eu_data), batch_size=32, device = device, sort_key = lambda x: len(x.text), shuffle = True, sort_within_batch = True, sort = False)
-    print(train_loader, test_loader)
+    us_train, us_test = us_data.split(split_ratio = lstm_sentiment_analysis.TRAIN_SIZE, random_state = random.seed(0))
+    eu_train, eu_test = eu_data.split(split_ratio = lstm_sentiment_analysis.TRAIN_SIZE, random_state = random.seed(0))
+
+    train_loader, test_loader = data.BucketIterator.splits((us_train, eu_test), batch_size=32, device = device, sort_key = lambda x: len(x.text), shuffle = True, sort_within_batch = True, sort = False)
 
     #CREATING MODEL
-    model = main.CaseSentimentLSTM(len(TEXT.vocab), main.EMBEDDING_DIM, HIDDEN_SIZE, main.OUTPUT_SIZE, main.NUM_LAYERS, TEXT.vocab.stoi[TEXT.pad_token])
+    model = lstm_sentiment_analysis.CaseSentimentLSTM(len(TEXT.vocab), lstm_sentiment_analysis.EMBEDDING_DIM, HIDDEN_SIZE, lstm_sentiment_analysis.OUTPUT_SIZE, lstm_sentiment_analysis.NUM_LAYERS, TEXT.vocab.stoi[TEXT.pad_token])
     model.word_embedding.weight.data.copy_(TEXT.vocab.vectors)
 
     #Fixing the the unk and pad token
     UNK_IDX = TEXT.vocab.stoi[TEXT.unk_token]
-    model.word_embedding.weight.data[UNK_IDX] = torch.zeros(main.EMBEDDING_DIM)
-    model.word_embedding.weight.data[TEXT.vocab.stoi[TEXT.pad_token]] = torch.zeros(main.EMBEDDING_DIM)
+    model.word_embedding.weight.data[UNK_IDX] = torch.zeros(lstm_sentiment_analysis.EMBEDDING_DIM)
+    model.word_embedding.weight.data[TEXT.vocab.stoi[TEXT.pad_token]] = torch.zeros(lstm_sentiment_analysis.EMBEDDING_DIM)
 
     #CREATE OPTIMIZER AND CRITERION
     optimizer = optim.AdamW(model.parameters(), lr = 0.003, weight_decay = 0.3)
@@ -70,14 +73,14 @@ if __name__ == "__main__":
     #EPOCHS
     best_valid_loss = float('inf')
 
-    for epoch in range(main.N_EPOCH):
+    for epoch in range(lstm_sentiment_analysis.N_EPOCH):
 
         train_loader.create_batches()
 
         start_time  = time.time()
         
-        train_loss, train_acc = main.train(model, train_loader, optimizer, criterion)
-        valid_loss, valid_acc = main.evaluate(model, test_loader, criterion)
+        train_loss, train_acc = lstm_sentiment_analysis.train(model, train_loader, optimizer, criterion)
+        valid_loss, valid_acc = lstm_sentiment_analysis.evaluate(model, test_loader, criterion)
 
         end_time = time.time()
 
