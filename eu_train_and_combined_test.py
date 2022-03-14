@@ -33,7 +33,7 @@ if __name__ == "__main__":
     
     #validation dataset
     #combined eu and us
-    combined_data = data.TabularDataset('csv_data/combined_data.csv', format = 'csv', fields = fields, skip_header = True)
+    combined_data = data.TabularDataset('datasets/csv_data/combined_data.csv', format = 'csv', fields = fields, skip_header = True)
     print(combined_data.fields)
 
 

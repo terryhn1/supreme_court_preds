@@ -32,9 +32,9 @@ if __name__ == "__main__":
     ('second_party',TEXT), ('label', LABEL)]
     
     #training dataset
-    us_data = data.TabularDataset('csv_data/supreme_court.csv', format = 'csv', fields = fields, skip_header = True)
+    us_data = data.TabularDataset('datasets/csv_data/supreme_court.csv', format = 'csv', fields = fields, skip_header = True)
     #validation dataset
-    eu_data = data.TabularDataset('csv_data/eu_human_rights.csv', format = 'csv', fields = fields, skip_header = True)
+    eu_data = data.TabularDataset('datasets/csv_data/eu_human_rights.csv', format = 'csv', fields = fields, skip_header = True)
     
 
     TEXT.build_vocab(eu_data, vectors = 'glove.6B.100d', min_freq = 1, unk_init = torch.Tensor.normal_)

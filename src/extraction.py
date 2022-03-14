@@ -13,7 +13,7 @@ def extract_data():
     """Takes the information from the CSV File and packages into a Pandas Dataframe for further usage"""    
 
 
-    data = pd.read_csv('csv_data/justice.csv', encoding= "utf-8")
+    data = pd.read_csv('datasets/csv_data/justice.csv', encoding= "utf-8")
 
     cases = list()
     clean = re.compile('<.*?>')
@@ -33,11 +33,11 @@ def extract_data():
     return dataset, text_corpus
 
 def extract_data_EU():
-    with open('jsonl/dev.jsonl') as f:
+    with open('datasets/jsonl/dev.jsonl') as f:
         euDevCourtData = [json.loads(line) for line in f]
-    with open('jsonl/train.jsonl') as f1:
+    with open('datasets/jsonl/train.jsonl') as f1:
         euTrainCourtData = [json.loads(line) for line in f1]
-    with open('jsonl/test.jsonl') as f2:
+    with open('datasets/jsonl/test.jsonl') as f2:
         euTestCourtData = [json.loads(line) for line in f2]
 
 
@@ -111,5 +111,5 @@ if __name__ == "__main__":
 
     combined = pd.concat([eu, us])
     
-    combined.to_csv('csv_data/combined_data.csv')
+    combined.to_csv('datasets/csv_data/combined_data.csv')
     

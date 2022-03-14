@@ -5,7 +5,7 @@ from pydoc import doc
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-import extraction
+import src.extraction as extraction
 
 
 def us_histogram():
