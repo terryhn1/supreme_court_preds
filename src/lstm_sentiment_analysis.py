@@ -55,24 +55,11 @@ tokenizer = get_tokenizer("basic_english")
 Summary:The CaseSentimentLSTM is the model used alongside with Sentiment Analysis
 in order to predict the favored winner of the case depending on the textdata given.
 
-Model Layout: In order to create a deep learning network, multiple layers are included and
-can be viewed in the __init__ method of the model. Each model serves a purpose in order
-to help get more accurate results.
 
-Current Completion Progress: Code has been tested up until the Training part. In order to complete the basic
-functionality of the model, evaluation as well as testing must be done in order to get back results and to see
-results that would be considered normal.
-
-Choices of Constants: Hidden Size is chosen to be 32 for now but can be changed to 16 later to introduce more strict output.
-Batch size is chosen to be 32 as a good count for a set of 3303 cases. Num_layers chosen to be 2 in order to introduce some
-strictness and stacking into the LSTM model. Output_Size is chosen to be 1 as a default. Train Size and Test Size are at 0.8
-and 0.2 as defaults
-
-Roadblocks Encountered Resulting in Delay: Text Data had to be transferred into a custom Dataset in order
-to be fed into a DataLoader class. Conflicting tutorials as well as legacy libraries that cannot be used on current desktop.
-
-Functionalities To not be Added: Additional features are not being accounted for and dates will not be separated
-due to lack of sufficient data already for training purposes. """
+This code is originally from Ben Trevett's Github(given in the final report resources and the README) and modified
+to suit this project's needs. Experiment files(including this one) do different tests on a certain combination of the two datasets used.
+If listed as an experiment file on the README, these files are executable and will give feedback on training/testing.
+"""
 
 
 class CaseSentimentLSTM(nn.Module):
