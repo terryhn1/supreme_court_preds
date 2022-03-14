@@ -1,4 +1,4 @@
-import lstm_sentiment_analysis
+import src.lstm_sentiment_analysis as lstm_sentiment_analysis
 import torch
 import random
 import time
