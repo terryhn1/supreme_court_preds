@@ -1,4 +1,4 @@
-import src.lstm_sentiment_analysis as lstm_sentiment_analysis
+import lstm_sentiment_analysis as lstm_sentiment_analysis
 import torch
 import random
 import time
@@ -31,9 +31,9 @@ if __name__ == "__main__":
     ('second_party',TEXT), ('label', LABEL)]
     
     #training dataset
-    eu_data = data.TabularDataset('datasets/csv_data/eu_human_rights.csv', format = 'csv', fields = fields, skip_header = True)
+    eu_data = data.TabularDataset('./datasets/csv_data/eu_human_rights.csv', format = 'csv', fields = fields, skip_header = True)
     #validation dataset
-    us_data = data.TabularDataset('datasets/csv_data/supreme_court.csv', format = 'csv', fields = fields, skip_header = True)
+    us_data = data.TabularDataset('./datasets/csv_data/supreme_court.csv', format = 'csv', fields = fields, skip_header = True)
 
     TEXT.build_vocab(eu_data, vectors = 'glove.6B.100d', min_freq = 1, unk_init = torch.Tensor.normal_)
     LABEL.build_vocab(eu_data)

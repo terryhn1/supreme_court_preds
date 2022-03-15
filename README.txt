@@ -21,12 +21,12 @@ Assignment 1 Logistic Classifier(https://www.ics.uci.edu/~smyth/courses/cs175/as
 
 --------------------------------
 Code Written
-EXPERIMENT FILES -> EXECUTABLE CODE WITH RESULTS
+SCRIPT FILE -> EXECUTABLE CODE WITH RESULTS
 - src/extraction.py(Reads CSV/JSON Files, truncates text data, removes outliers, creates labels for the EU Court of Human Rights dataset, creates pandas Dataframe from extracted data and converst to a new CSV file)
 - src/histogram.py(Reads EU and Supreme Court files to create histograms for the number of documents and text data length)
-- lstm_sentiment_analysis.py(Experiment File; reads input the US Supreme Court data and creates its predictions using the LSTM Sentiment Analysis method; holds main functions that are passed down to other test files)
-- logistic_classifier.py(Experiment File; Reads input from both datasets, places the data into a bag of words model, and uses logistic classification for output predictions)
-- eu_train.py(Experiment File; reads EU Court of Human Rights data as training input, and uses a subset of the EU data for predictions)
-- eu_train_and_combined_test.py(Experiment File; reads EU dataset as input and uses a combined subset of the US Supreme court and EU Court datasets for testing purposes)
-- eu_train_and_us_test.py(Experiment File; reads EU dataset as input for training and uses the US Supreme Court dataset for testing purposes)
-- us_train_and_eu_test.py(Experiment File; reads US Supreme Court dataset as input for training and uses the EU Court dataset for testing purposes for predictions)
+- lstm_sentiment_analysis.py(Script File; reads input the US Supreme Court data and creates its predictions using the LSTM Sentiment Analysis method; holds main functions that are passed down to other test files)
+- logistic_classifier.py(SCRIPT File; Reads input from both datasets, places the data into a bag of words model, and uses logistic classification for output predictions)
+- eu_train.py(Script File; reads EU Court of Human Rights data as training input, and uses a subset of the EU data for predictions)
+- eu_train_and_combined_test.py(Script File; reads EU dataset as input and uses a combined subset of the US Supreme court and EU Court datasets for testing purposes)
+- eu_train_and_us_test.py(Script File; reads EU dataset as input for training and uses the US Supreme Court dataset for testing purposes)
+- us_train_and_eu_test.py(Script File; reads US Supreme Court dataset as input for training and uses the EU Court dataset for testing purposes for predictions)

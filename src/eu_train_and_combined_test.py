@@ -1,5 +1,5 @@
 from cgi import test
-import src.lstm_sentiment_analysis as lstm_sentiment_analysis
+import lstm_sentiment_analysis as lstm_sentiment_analysis
 import torch
 import random
 import time
@@ -33,7 +33,7 @@ if __name__ == "__main__":
     
     #validation dataset
     #combined eu and us
-    combined_data = data.TabularDataset('datasets/csv_data/combined_data.csv', format = 'csv', fields = fields, skip_header = True)
+    combined_data = data.TabularDataset('./datasets/csv_data/combined_data.csv', format = 'csv', fields = fields, skip_header = True)
     print(combined_data.fields)
 
 

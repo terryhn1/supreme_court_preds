@@ -12,11 +12,11 @@ from sklearn import metrics
 
 def text_extraction():
     data = pd.read_csv('datasets/csv_data/justice.csv')
-    with open('datasets/jsonl/dev.jsonl') as f:
+    with open('./datasets/jsonl/dev.jsonl') as f:
         euDevCourtData = [json.loads(line) for line in f]
-    with open('datasets/jsonl/train.jsonl') as f1:
+    with open('./datasets/jsonl/train.jsonl') as f1:
         euTrainCourtData = [json.loads(line) for line in f1]
-    with open('datasets/jsonl/test.jsonl') as f2:
+    with open('./datasets/jsonl/test.jsonl') as f2:
         euTestCourtData = [json.loads(line) for line in f2]
 
 
