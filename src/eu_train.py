@@ -68,7 +68,6 @@ if __name__ == "__main__":
 
         if valid_loss <  best_valid_loss:
             best_valid_loss = valid_loss
-            torch.save(model.state_dict(), 'eu_preds-lstm.pt')
         
         print(f'Epoch: {epoch+1:02} | Epoch Time: {end_time - start_time}s', flush = True)
         print(f'\tTrain Loss: {train_loss:.3f} | Train Acc: {train_acc*100:.3f}%', flush = True)
